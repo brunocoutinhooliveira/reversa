@@ -134,6 +134,20 @@ Use when the legacy "code" is not source code but a structured artifact like a v
 |-------|------|
 | **N8N Translator** | Reads N8N workflows exported as JSON and produces SDD specs ready for Python reimplementation. Activated via `/reversa-n8n` |
 
+### Documentation Team (HTML mini-site)
+
+After discovery completes, this team turns the extracted knowledge into a self-contained HTML mini-site under `.reversa/documentation/`. Run `/reversa-docs` to orchestrate the full team, or activate any agent in isolation to regenerate only its pages.
+
+| Agent | Role |
+|-------|------|
+| **Reversa Docs** | Orchestrates the team, runs the 3-question interview, computes deterministic seed. Activated via `/reversa-docs` |
+| **Mapper** | Spatial structure: `arquitetura.html` (Code City 3D, Three.js), `modulos.html` (force-directed D3), `topologia.html` (legacy vs modern side-by-side) |
+| **Analyst** | Quantitative data: `metricas.html` (Highcharts treemap, sankey, histogram, columns), `timeline.html` (events from `.reversa/chronicle.md`) |
+| **Storyteller** | Narrative: `glossario.html` (client-side search), `deck.html` (6 to 10 navigable slides), `features/<spec>.html` (one per SDD spec) |
+| **Publisher** | Final integration: `index.html` with hero + unique generative seal, auto-discovery of auxiliary HTMLs from other agents, link validation, local telemetry |
+
+The team brings 5 shared skills (`reversa-arquitetura-3d`, `reversa-selo-generativo`, `reversa-highcharts-visualizer`, `reversa-especialista-d3`, `reversa-image-prompt-json`) which are installed automatically alongside the team. The output is a static mini-site that opens via `file://` with no server required.
+
 ---
 
 ## What is generated
