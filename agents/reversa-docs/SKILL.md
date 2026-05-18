@@ -122,7 +122,13 @@ Antes de invocar os agentes, apresente ao usuário o plano:
 
 ### 5. Execução sequencial dos 4 agentes
 
-Para cada agente na sequência **Mapper → Analyst → Storyteller → Publisher**:
+**Fase 0 (vendor bundle), antes do Mapper**: garanta que `assets/vendor/` está populado executando o procedimento de bundle vendor descrito no Passo 0 do Publisher (`agents/reversa-docs-publisher/SKILL.md`). Isso baixa Three.js, OrbitControls, D3, Highcharts e módulos via `agents/reversa-docs-publisher/references/vendor-pins.yaml` com retry de CDN. As páginas que o Mapper, Analyst e Storyteller geram referenciam essas libs locais via `<script src="assets/vendor/...">`; se as libs não estiverem no disco quando o usuário abrir, as páginas quebram.
+
+Em modo isolado (usuário chamou `/reversa-docs-mapper` sem orquestrador), o agente isolado deve executar o mesmo Passo 0 do Publisher como preâmbulo do próprio processo, se `assets/vendor/` estiver vazio.
+
+Depois do vendor bundle, execute em sequência **Mapper → Analyst → Storyteller → Publisher**.
+
+Para cada agente na sequência:
 
 1. Informe: "Iniciando o **[Agente]**, [o que ele vai fazer]."
 2. Ative o skill `reversa-docs-<nome>` correspondente. Se a engine não suportar ativação direta, leia o `SKILL.md` do agente e execute no contexto atual passando o `.config.json` como entrada.
@@ -149,8 +155,14 @@ Se o usuário digitar `cancelar`, salve o estado atual em `.state.json` (com `pe
 > Páginas omitidas: [N]
 > HTMLs auxiliares descobertos pelo Publisher: [N]
 > Tempo total do pipeline: [X]s
+> Smoke test: [verde / FALHOU: lista de páginas com problema]
 >
-> Abra `index.html` no seu navegador (ou rode `start .reversa/documentation/index.html` no Windows, `open` no Mac, `xdg-open` no Linux).
+> Como abrir:
+> - **Duplo clique funciona**: o Publisher embedou dados em `assets/js/data.js` e baixou Three.js, D3 e Highcharts em `assets/vendor/`. Não precisa de servidor para abrir.
+>   - Windows: `start .reversa/documentation/index.html`
+>   - macOS: `open .reversa/documentation/index.html`
+>   - Linux: `xdg-open .reversa/documentation/index.html`
+> - **Para hot-reload durante edição**: `python -m http.server 8080` na pasta `.reversa/documentation/` e acesse `http://localhost:8080/`.
 >
 > Próximo agente sugerido: [contextual: `/reversa-forward` se há specs, `/reversa-chronicler` se não há crônica recente, etc.]
 >
@@ -205,3 +217,25 @@ Se o contexto estiver se esgotando entre agentes:
 - Nunca rode varredura de credenciais no código do projeto. Se identificar pista de credencial, ignore e não cite.
 - Nunca avance entre agentes sem `CONTINUAR` do usuário (exceto em `--auto`).
 - Todo texto exibido ao usuário em pt-br, sem travessão.
+
+## Invariantes técnicas do mini-site (para todos os 4 agentes do time)
+
+Essas invariantes valem para Mapper, Analyst, Storyteller e Publisher. O Publisher é o guardião final, mas qualquer agente que violar quebra a invariante:
+
+1. **Funciona via `file://`**: usuário abre `index.html` com duplo clique e tudo funciona. Nenhuma página faz `fetch()` para arquivos locais (CORS bloqueia origin `null`). Dados vêm de `window.RV_DATA.<chave>`, injetado pelo `assets/js/data.js` que o Publisher gera no passo 3.
+2. **Funciona offline**: nenhuma página tem `<script src="https://...">` para CDN. Libs externas (Three.js, D3, Highcharts, OrbitControls e módulos) ficam em `assets/vendor/`, baixadas pelo Publisher via `agents/reversa-docs-publisher/references/vendor-pins.yaml`.
+3. **Nav reflete `pagesGenerated`**: o `<!-- NAV_LINKS -->` do `viewer.html` é preenchido pelo Publisher no passo 4, lendo `.state.json.pagesGenerated`. Páginas omitidas não aparecem no nav. Mapper, Analyst e Storyteller **deixam o marcador como está**, sem preencher hardcoded.
+4. **Smoke test no Publisher**: o Publisher faz teste real de carregamento (http.server + GET + grep de padrões de erro) antes de declarar sucesso. Falha aparece em destaque no resumo final.
+5. **Scripts Python emitidos sempre começam com preâmbulo de encoding** para evitar `UnicodeEncodeError` em Windows com Python 3.12+ default cp1252:
+
+   ```python
+   import sys
+   if sys.platform == "win32":
+       try:
+           sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+           sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+       except AttributeError:
+           pass
+   ```
+
+   Alternativa: usar apenas ASCII em prints. Ambos aceitos.

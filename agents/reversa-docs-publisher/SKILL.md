@@ -31,8 +31,19 @@ Quarto agente do pipeline `/reversa-docs`. Roda por último porque depende das p
 - `.reversa/documentation/index.html` (porta de entrada)
 - `.reversa/documentation/assets/img/seal.svg` (selo grande do hero)
 - `.reversa/documentation/assets/img/seal-mini.svg` (mini-selo do header)
-- `.reversa/documentation/.state.json` (atualizado com telemetria final)
-- Todas as páginas existentes têm `<!-- MINI_SEAL_SVG -->` substituído pelo mini-selo
+- `.reversa/documentation/assets/js/data.js` (todos os JSONs intermediários embedados em `window.RV_DATA`)
+- `.reversa/documentation/assets/vendor/*` (Three.js, OrbitControls, D3, Highcharts e módulos, baixados localmente)
+- `.reversa/documentation/.state.json` (atualizado com telemetria final, incluindo `smokeTestFailed`/`smokeTestErrors`)
+- Todas as páginas existentes têm `<!-- MINI_SEAL_SVG -->` substituído pelo mini-selo e `<!-- NAV_LINKS -->` substituído pelo menu derivado de `pagesGenerated`.
+
+## Invariantes do mini-site
+
+Estas invariantes valem para **todas** as páginas geradas pelo time Reversa Docs e o Publisher é responsável por verificá-las antes do resumo final:
+
+1. **Funciona via `file://`**: o usuário deve conseguir abrir `index.html` com duplo clique. Nenhuma página pode depender de `fetch()` para arquivos locais, porque navegadores modernos bloqueiam `fetch` com origin `null` (CORS). Dados são consumidos via `window.RV_DATA.<chave>` injetado pelo `assets/js/data.js`.
+2. **Funciona offline**: nenhum `<script src="https://...">` apontando para CDN. Todas as libs ficam em `assets/vendor/` baixadas pelo Publisher.
+3. **Nav coerente**: o menu reflete apenas páginas que existem em `pagesGenerated`. Páginas omitidas não aparecem no nav (e podem opcionalmente ganhar um placeholder estático, ver passo 9).
+4. **Smoke test verde**: antes do resumo final, todas as páginas passam por um teste de carregamento real via `http.server` local (ver passo 10).
 
 ## Antes de começar
 
@@ -46,6 +57,21 @@ Quarto agente do pipeline `/reversa-docs`. Roda por último porque depende das p
 Pergunta única (estilo visual). Persiste em `.config.json` se ausente.
 
 ## Processo
+
+### 0. Bundle vendor local (offline-first)
+
+Antes de qualquer página ser gerada ou validada, garanta que `assets/vendor/` está pronto.
+
+1. Leia `agents/reversa-docs-publisher/references/vendor-pins.yaml` (matriz oficial de libs, versões, formatos e fallbacks).
+2. Para cada entrada que ainda não está em `assets/vendor/<local>`:
+   - Tente a URL primária. Se falhar, percorra `fallbacks` na ordem.
+   - Antes de baixar, faça `HEAD` na URL. Se retornar 200, baixe; se retornar 404 ou erro de rede, vá para o próximo fallback.
+   - Se todos os fallbacks falharem, registre em `.state.json.vendorMissing: [...]` e siga, mas marque a página correspondente para placeholder de aviso "biblioteca indisponível, conecte-se à internet e rode novamente".
+   - Salve em `assets/vendor/<local>` com o mesmo nome esperado pelos templates.
+3. Se um fallback foi usado (não a URL primária), registre em `.state.json.cdnFallbackUsed = true` e detalhe `cdnFallbackDetails: [{lib, primary, used}]`.
+4. **Sem rede**: se nenhuma URL responde, o Publisher ainda assim segue. Páginas que dependem de vendor ausente recebem placeholder. O resumo final marca isso em vermelho.
+
+> Não use estas libs via CDN nas páginas finais. O Publisher reescreve `<!-- HEAD_EXTRAS -->` (e qualquer `<script src="https://...">` que tenha escapado em páginas pré-existentes) para apontar para `assets/vendor/<local>`.
 
 ### 1. Gerar selo grande (`seal.svg`)
 
@@ -62,18 +88,69 @@ Invoque novamente com mesma seed mas `size: mini` (64x64). O padrão escolhido �
 
 Salve em `.reversa/documentation/assets/img/seal-mini.svg`.
 
-### 3. Injetar mini-selo retroativamente
+### 3. Gerar `assets/js/data.js` (única fonte de dados das páginas)
 
-Para cada página HTML existente em `.reversa/documentation/` (exceto `index.html` que será gerado agora):
+Esse arquivo é o **dono dos dados** do mini-site. Todas as páginas leem dele via `window.RV_DATA.<chave>`. Nenhuma página faz `fetch()` para arquivos locais (CORS quebra qualquer página aberta via `file://`).
+
+Schema produzido:
+
+```javascript
+window.RV_DATA = {
+  modules: { /* conteúdo de assets/data/modules.json, ou {} se ausente */ },
+  deps: { /* assets/data/deps.json */ },
+  metrics: { /* assets/data/metrics.json */ },
+  timeline: { /* assets/data/timeline.json */ },
+  glossary: { /* assets/data/glossary.json ou soul.json conforme produzido pelo Storyteller */ },
+  featuresIndex: { /* assets/data/features-index.json */ },
+  sealSvg: "<svg ...>...</svg>",
+  sealMiniSvg: "<svg ...>...</svg>",
+  seedShort: "primeiros 8 chars do seed.hash",
+  nav: [
+    {"id": "index", "href": "index.html", "label": "Visão geral"},
+    {"id": "arquitetura", "href": "arquitetura.html", "label": "Arquitetura 3D"}
+  ],
+  config: {
+    "visualStyle": "exploratory",
+    "readerProfile": "stakeholder",
+    "depth": "full"
+  }
+};
+```
+
+Procedimento:
+
+1. Liste os JSONs em `.reversa/documentation/assets/data/` produzidos pelos agentes anteriores. Se algum esperado estiver ausente, registre a chave correspondente como `{}` (ou `null`) e siga.
+2. Leia cada JSON e embed o conteúdo direto no script (sem `JSON.parse(...)` em runtime, deixe o objeto já pronto). Quando o JSON for grande (acima de 200 KB), avalie minificar e ainda assim manter inline. Não comprima.
+3. Embed também `seal.svg` e `seal-mini.svg` como strings (`sealSvg`, `sealMiniSvg`).
+4. Monte o array `nav` lendo `pagesGenerated` (atualizado até este ponto pelos outros agentes). Mapeamento padrão de rótulos:
+   | id | href | label |
+   |---|---|---|
+   | index | index.html | Visão geral |
+   | arquitetura | arquitetura.html | Arquitetura 3D |
+   | modulos | modulos.html | Módulos |
+   | topologia | topologia.html | Topologia |
+   | metricas | metricas.html | Métricas |
+   | timeline | timeline.html | Timeline |
+   | glossario | glossario.html | Glossário |
+   | deck | deck.html | Deck |
+5. Salve em `.reversa/documentation/assets/js/data.js`.
+6. Garanta que `viewer.html` (e portanto todas as páginas que herdam dele) carrega `<script src="assets/js/data.js"></script>` **antes** de `nav.js`. Se uma página foi gerada por agente anterior sem essa referência, injete a tag logo no início de `<!-- SCRIPTS -->` (ou no `<head>` se necessário) ao reescrever a página no passo 5.
+
+> Diretiva absoluta para todos os agentes do time: **nenhuma página pode chamar `fetch("assets/data/...")` ou `fetch("assets/img/...")` ou qualquer URL local**. Os JSONs em `assets/data/` continuam existindo como fonte intermediária e para regeneração granular, mas as páginas HTML só consomem `window.RV_DATA`.
+
+### 4. Injetar mini-selo e nav retroativamente
+
+Para cada página HTML existente em `.reversa/documentation/` (exceto `index.html` que será gerado depois):
 
 1. Leia o conteúdo da página.
-2. Localize o marcador `<!-- MINI_SEAL_SVG -->` no header (definido em `templates/documentation/viewer.html`).
-3. Substitua pelo conteúdo de `seal-mini.svg` (inline SVG).
-4. Reescreva a página.
+2. Localize o marcador `<!-- MINI_SEAL_SVG -->` no header e substitua pelo conteúdo de `seal-mini.svg`.
+3. Localize o marcador `<!-- NAV_LINKS -->` e substitua por `<a>` tags geradas a partir de `window.RV_DATA.nav`. Cada link com `href`, `data-page-id` e o `label`. A página atual recebe `aria-current="page"` adicionado depois pelo `nav.js`.
+4. Garanta que `<script src="assets/js/data.js"></script>` aparece **antes** de `<script src="assets/js/nav.js"></script>`.
+5. Reescreva a página.
 
-Se o marcador já foi substituído numa execução anterior (não há `<!-- MINI_SEAL_SVG -->` literal mas há `<svg class="seal-mini">`), substitua o `<svg>` anterior pelo novo. Isso garante idempotência em regenerações.
+Se o marcador já foi substituído numa execução anterior (não há `<!-- MINI_SEAL_SVG -->` literal mas há `<svg class="seal-mini">`), substitua o `<svg>` anterior pelo novo. Mesmo princípio para `NAV_LINKS`: detectar bloco `<nav class="reversa-doc-nav">...</nav>` e substituir conteúdo interno. Isso garante idempotência em regenerações.
 
-### 4. Auto-discovery de HTMLs auxiliares
+### 5. Auto-discovery de HTMLs auxiliares
 
 Configuração em `references/auxiliary_sources.yaml`. Resumo:
 
@@ -91,7 +168,7 @@ Para cada HTML descoberto, extraia:
 
 Se varredura excede timeout, aborte com aviso e indexe apenas o que descobriu até ali. Registre em `.state.json` campo `auxiliaryDiscoveryAborted: true`.
 
-### 5. Gerar `index.html`
+### 6. Gerar `index.html`
 
 Estrutura usando `templates/documentation/pages/index.html.tpl`:
 
@@ -110,15 +187,49 @@ Estrutura usando `templates/documentation/pages/index.html.tpl`:
    - GENERATED_AT = ISO-8601 atual
 5. Salve em `.reversa/documentation/index.html`.
 
-### 6. Validar links relativos
+### 7. Validar links relativos e nav
 
-Para cada link `<a href="...">` em `index.html`:
+Para cada link `<a href="...">` em `index.html` **e em cada `<nav>` das demais páginas**:
 - Se o href é relativo, verifique se o destino existe em `.reversa/documentation/` (ou no caminho relativo correspondente).
 - Registre links quebrados em `.state.json` campo `brokenLinks: [{from, href, expected_path}]`.
 
+O validador deve inspecionar tanto links estáticos quanto o conteúdo do `<nav>` injetado a partir de `window.RV_DATA.nav` (parse simples do bloco `<nav class="reversa-doc-nav">` em cada página).
+
 Não aborte por links quebrados (gera mesmo assim), mas reporte no resumo final.
 
-### 7. Atualizar `.state.json` com telemetria final
+### 8. Gerar placeholders para páginas omitidas (opcional, recomendado)
+
+Para cada item em `pagesOmitted` que tem `href` mapeado em `nav`, gere uma página HTML mínima explicando por que foi omitida e como habilitar. Exemplo para `topologia.html`:
+
+> Esta página seria gerada a partir de `_reversa_sdd/architecture.md` se ele declarasse variantes de topologia. Rode `/reversa-architect` com `--topology` para habilitar.
+
+Use o chassis `viewer.html` normal e marque `<meta name="reversa-placeholder" content="true">` no `<head>` para inspeção futura. Isso evita links 404 no nav quando a omissão é estrutural.
+
+### 9. Smoke test antes do resumo (rede de segurança)
+
+Antes de declarar sucesso, o Publisher faz um teste real de carregamento das páginas. Implementação mínima recomendada (Python stdlib, multi-engine):
+
+```python
+# 1. Subir http.server em porta efêmera apontando para .reversa/documentation/
+# 2. Para cada página em pagesGenerated:
+#    a. GET http://localhost:<porta>/<pagina>
+#    b. Verifique HTTP 200.
+#    c. Para cada <script src="..."> relativo (não http/https), faça GET e verifique 200.
+#    d. Faça grep no HTML por padrões conhecidos de erro: "is not defined",
+#       "Failed to fetch", "Erro ao carregar", "Access to fetch", "NetworkError".
+# 3. Se algum check falhar, registre em .state.json:
+#    smokeTestFailed: true
+#    smokeTestErrors: [{page, kind, detail}]
+# 4. Encerre o servidor.
+```
+
+O smoke test cobre os 4 sintomas mais comuns desta categoria: CDN 404, asset local 404, símbolo JS ausente, fetch bloqueado. Não substitui um navegador real (não executa JS), mas pega 80% das regressões observadas em campo.
+
+Se o ambiente não tem Python disponível, faça o equivalente mínimo: para cada `<script src="...">` com path relativo, verifique se o arquivo existe em disco. É um subset, mas cobre os erros 2 e 3.
+
+Reporte no resumo final em destaque (vermelho ou prefixo `[FALHOU]`) se `smokeTestFailed = true`.
+
+### 10. Atualizar `.state.json` com telemetria final
 
 Schema completo:
 
@@ -142,11 +253,15 @@ Schema completo:
   "auxiliaryHtmlsDiscovered": 3,
   "auxiliaryDiscoveryAborted": false,
   "cdnFallbackUsed": false,
+  "cdnFallbackDetails": [],
+  "vendorMissing": [],
+  "smokeTestFailed": false,
+  "smokeTestErrors": [],
   "brokenLinks": []
 }
 ```
 
-### 8. Sugestão contextual do próximo agente
+### 11. Sugestão contextual do próximo agente
 
 Analise o estado do projeto e sugira o próximo passo natural:
 
@@ -187,11 +302,11 @@ Apenas escreve em `.reversa/documentation/`. Auto-discovery só **lê** HTMLs em
 > - Links quebrados: [B] (se houver)
 > - Tempo total do pipeline: [T]s
 > - CDN fallback usado: [sim/não]
+> - Smoke test: [verde/FALHOU: [lista de falhas]]
 >
-> Abra `index.html` no navegador:
-> - Windows: `start .reversa/documentation/index.html`
-> - macOS: `open .reversa/documentation/index.html`
-> - Linux: `xdg-open .reversa/documentation/index.html`
+> Como abrir:
+> - **Duplo clique funciona** (Windows: `start .reversa/documentation/index.html`, macOS: `open ...`, Linux: `xdg-open ...`). Como o Publisher embedou dados em `assets/js/data.js` e baixou vendor offline, o mini-site abre via `file://` sem CORS.
+> - **Para hot-reload** durante edição: `python -m http.server 8080` na pasta `.reversa/documentation/` e acesse `http://localhost:8080/`.
 >
 > Próximo agente sugerido: [contextual conforme tabela acima]
 >

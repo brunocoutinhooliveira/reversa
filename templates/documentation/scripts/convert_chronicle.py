@@ -12,8 +12,16 @@ Uso:
 import argparse
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
 
 DATE_PATTERN = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 HEADING_PATTERN = re.compile(r"^#{1,3}\s+(.+)$", re.MULTILINE)

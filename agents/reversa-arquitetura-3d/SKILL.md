@@ -9,7 +9,8 @@ description: >
   stack 3D", "call graph 3D", "architecture tour", "tour pela arquitetura", "visualizar
   software em 3D", "Three.js" no contexto de software, ou pedir para explorar a estrutura
   de um sistema com câmera 3D. Funciona com JSON de módulos (nome, pasta, LOC, complexidade)
-  e dependências (grafo orientado). Sempre gera HTML standalone completo com Three.js via CDN.
+  e dependências (grafo orientado). Sempre gera HTML standalone completo. Quando rodada
+  pelo Time Reversa Docs, usa Three.js servido localmente em assets/vendor/ (offline-first).
 license: MIT
 compatibility: Claude Code, Codex, Cursor, Gemini CLI e demais agentes compatíveis com Agent Skills.
 metadata:
@@ -88,9 +89,9 @@ Consultar `references/THREE_PATTERNS.md` para setup base (renderer, cena, câmer
 
 **Regras fundamentais**:
 
-1. **HTML standalone**: arquivo único `.html` com tudo embutido (CSS, JS, dados inline em `<script id="data">`).
-2. **Three.js via CDN**: usar `https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js` (versão estável recente).
-3. **OrbitControls via CDN**: `https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js`.
+1. **HTML standalone**: arquivo único `.html` com tudo embutido (CSS, JS, dados inline em `<script id="data">`). Quando rodada pelo Time Reversa Docs, os dados vêm de `window.RV_DATA.modules` e `window.RV_DATA.deps` (carregados pelo `assets/js/data.js` que o Publisher gera) e o `<script id="data">` fica vazio ou ausente. Páginas finais **nunca** fazem `fetch()` para arquivos locais (quebra via `file://`).
+2. **Three.js local**: usar `<script src="assets/vendor/three.min.js"></script>` apontando para o arquivo baixado pelo Publisher (versão pinada em `agents/reversa-docs-publisher/references/vendor-pins.yaml`, hoje `three@0.147.0` IIFE). Em modo invocação isolada fora do time Docs, aceite CDN como fallback (`https://unpkg.com/three@0.147.0/build/three.min.js`), mas **nunca** misture versões.
+3. **OrbitControls local**: usar `<script src="assets/vendor/OrbitControls.js"></script>` (também IIFE, compatível com `three@0.147`). Não use `examples/jsm/...` enquanto a skill não migrar para importmap + ESM.
 4. **Renderer**: WebGLRenderer com antialiasing, pixelRatio do device.
 5. **Iluminação**: HemisphereLight + DirectionalLight com sombras suaves. Para Code City, AmbientLight extra para preencher.
 6. **Câmera**: PerspectiveCamera, posição inicial olhando o centro da cena de cima e levemente angulada. Distância derivada do tamanho da cena.
@@ -108,7 +109,9 @@ Consultar `references/THREE_PATTERNS.md` para setup base (renderer, cena, câmer
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arquitetura 3D | <!-- PROJECT_NAME --></title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js"></script>
+    <script src="assets/vendor/three.min.js"></script>
+    <script src="assets/vendor/OrbitControls.js"></script>
+    <script src="assets/js/data.js"></script>
     <style>
         body { margin: 0; overflow: hidden; font-family: system-ui, sans-serif; }
         #scene { position: fixed; inset: 0; }
@@ -127,9 +130,10 @@ Consultar `references/THREE_PATTERNS.md` para setup base (renderer, cena, câmer
         <button id="export-png">Exportar PNG</button>
     </aside>
     <script id="data" type="application/json"><!-- DATA_JSON --></script>
-    <script type="module">
-        import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js";
-        // 1. Carregar dados
+    <script>
+        // OrbitControls IIFE expõe THREE.OrbitControls globalmente.
+        // 1. Carregar dados de window.RV_DATA quando rodando no time Docs,
+        //    ou do <script id="data"> em modo standalone.
         // 2. Configurar cena, câmera, renderer, iluminação
         // 3. Construir geometria conforme o modo (Code City, Dep Graph, etc)
         // 4. Conectar sidebar aos parâmetros da cena
@@ -158,7 +162,7 @@ Quando invocada fora do contexto do `/reversa-documentation`, perguntar caminho 
 ## Diretrizes de código
 
 - **Modularidade**: separar criação da cena, construção da geometria e gerenciamento de interação em funções com nomes claros.
-- **Sem dependências além de Three.js e OrbitControls via CDN**: não importar GSAP, dat.GUI, ou qualquer outra lib sem necessidade clara.
+- **Sem dependências além de Three.js e OrbitControls (locais em `assets/vendor/`)**: não importar GSAP, dat.GUI, ou qualquer outra lib sem necessidade clara.
 - **Constantes nomeadas no topo**: cores, sizes, thresholds em um bloco de configuração visível.
 - **Dispose**: ao trocar de modo ou regenerar, chamar `geometry.dispose()` e `material.dispose()` para evitar vazamento.
 - **Performance check**: antes de renderizar, contar nós; se > 5.000 sem instanced mesh, abortar e mostrar aviso.

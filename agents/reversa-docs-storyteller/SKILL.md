@@ -39,6 +39,7 @@ Terceiro agente do pipeline `/reversa-docs`. **Não exige Analyst nem Cartograph
 1. Leia `.reversa/state.json` para `user_name`, `chat_language`.
 2. Leia `.reversa/documentation/.config.json`. Se ausente, conduza entrevista mínima.
 3. Verifique fontes disponíveis: `soul.md`, `_reversa_sdd/*/requirements.md`.
+4. Storyteller geralmente não usa libs externas pesadas (glossário é HTML puro + JS inline, deck é navegação por setas), mas se algum recurso premium (capa com canvas, slide com chart) for habilitado, garanta vendor disponível em `assets/vendor/` antes (em modo isolado, execute o Passo 0 do Publisher; em modo orquestrado já foi feito na Fase 0).
 
 ## Entrevista mínima
 
@@ -74,7 +75,7 @@ Filtra apenas pastas com `requirements.md` presente. Se `_reversa_sdd/` ausente 
 
 1. Carregue `soul.json`.
 2. Estruture os conceitos como cards (use o template `templates/documentation/pages/glossario.html.tpl` como guia).
-3. Implemente busca textual cliente-side em JavaScript inline: filtra cards por `term` ou `definition`.
+3. Implemente busca textual cliente-side em JavaScript inline: filtra cards por `term` ou `definition`. **Leia os dados de `window.RV_DATA.glossary`** (injetado pelo Publisher). Sem fetch local: páginas com `fetch("assets/data/...")` quebram via `file://` por CORS.
 4. Âncoras navegáveis: cada card tem `id="concept-<slug>"` para deep-link.
 5. Aplique chassis `viewer.html`:
    - TITLE = "Glossário"
@@ -82,6 +83,7 @@ Filtra apenas pastas com `requirements.md` presente. Se `_reversa_sdd/` ausente 
    - REVERSA_CATEGORY = "diagram"
    - REVERSA_PRODUCER_AGENT = "reversa-docs-storyteller"
    - REVERSA_TEMPLATE = "glossario"
+   - Deixe `<!-- NAV_LINKS -->` como está (Publisher backpatcha).
 6. Salve em `.reversa/documentation/glossario.html`.
 
 ### 4. Gerar `deck.html`

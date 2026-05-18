@@ -13,6 +13,27 @@
     const VALID_STYLES = ["sober", "premium", "dense", "exploratory"];
 
     /**
+     * Popula o <nav> com links lidos de window.RV_DATA.nav.
+     * Se o Publisher já preencheu via NAV_LINKS server-side, mantém.
+     * Se o nav está vazio (caso de regeneração parcial), preenche aqui.
+     * Fonte única de verdade: window.RV_DATA.nav (gerado a partir de
+     * pagesGenerated no .state.json pelo Publisher).
+     */
+    function renderNav() {
+        const nav = document.querySelector(".reversa-doc-nav");
+        if (!nav) return;
+        // Se nav já tem <a>, respeita server-side render.
+        if (nav.querySelector("a")) return;
+        if (!window.RV_DATA || !Array.isArray(window.RV_DATA.nav)) return;
+        const html = window.RV_DATA.nav
+            .map(function (item) {
+                return '<a href="' + item.href + '" data-page-id="' + item.id + '">' + item.label + '</a>';
+            })
+            .join("");
+        nav.innerHTML = html;
+    }
+
+    /**
      * Marca o link de navegação que aponta para a página atual.
      */
     function highlightActiveLink() {
@@ -111,6 +132,7 @@
     }
 
     function init() {
+        renderNav();
         highlightActiveLink();
         restoreTheme();
         attachThemeToggle();

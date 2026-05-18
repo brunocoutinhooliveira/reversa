@@ -7,10 +7,14 @@
   Dados consumidos: assets/data/timeline.json (derivado de .reversa/chronicle.md)
 
   Marcadores:
-  - HEAD_EXTRAS: <script src="https://code.highcharts.com/highcharts.js"></script>
-                 + <script src="https://code.highcharts.com/modules/timeline.js"></script>
+  - HEAD_EXTRAS: <script src="assets/vendor/highcharts.js"></script>
+                 + <script src="assets/vendor/highcharts-accessibility.js"></script>
+                 + <script src="assets/vendor/highcharts-timeline.js"></script>
+                 (todos baixados pelo Publisher via vendor-pins.yaml,
+                  highcharts@11.4.8)
   - CHART_TIMELINE: container da timeline
   - EVENT_DETAILS: painel lateral com detalhes do evento clicado
+  - SCRIPTS: monta a timeline a partir de window.RV_DATA.timeline (sem fetch local)
 -->
 
 <!-- PAYLOAD_START -->

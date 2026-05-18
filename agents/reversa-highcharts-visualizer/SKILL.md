@@ -79,50 +79,39 @@ Consultar `references/HIGHCHARTS_PATTERNS.md` para padrões de código testados.
 
 **Regras fundamentais:**
 
-1. **HTML standalone** — Arquivo único `.html` com Highcharts via CDN
-2. **CDN versão estável** — Usar `https://code.highcharts.com/highcharts.js` (core)
-3. **Módulos por demanda** — Só incluir scripts extras quando necessário (ver tabela de módulos)
-4. **Accessibility sempre** — Sempre incluir `modules/accessibility.js`
-5. **Exporting sempre** — Sempre incluir `modules/exporting.js` + `modules/export-data.js`
-6. **Responsivo** — O gráfico deve se adaptar ao container/viewport
-7. **Tema consistente** — Aplicar cores coesas e tipografia profissional
-8. **Animação** — Habilitar animações de entrada e transições suaves
-9. **Tooltips ricos** — Tooltips formatados, com unidades e contexto
-10. **Dados grandes** — Para >10K pontos, incluir `modules/boost.js`
+1. **HTML standalone**: arquivo único `.html`. Quando rodada pelo Time Reversa Docs, Highcharts vem de `assets/vendor/` (baixado pelo Publisher via `vendor-pins.yaml`). Quando rodada isoladamente, aceita CDN como fallback mas o caminho preferido é local.
+2. **Versão pinada**: `highcharts@11.4.8`. Core e módulos precisam ser da mesma versão.
+3. **Módulos por demanda**: só incluir scripts extras quando necessário (ver tabela de módulos).
+4. **Accessibility sempre**: sempre incluir `assets/vendor/highcharts-accessibility.js`.
+5. **Exporting sempre**: sempre incluir `assets/vendor/highcharts-exporting.js`.
+6. **Responsivo**: o gráfico deve se adaptar ao container/viewport.
+7. **Tema consistente**: aplicar cores coesas e tipografia profissional.
+8. **Animação**: habilitar animações de entrada e transições suaves.
+9. **Tooltips ricos**: tooltips formatados, com unidades e contexto.
+10. **Dados grandes**: para >10K pontos, incluir `modules/boost.js` (precisa entrar no `vendor-pins.yaml`).
+11. **Sem `fetch()` para arquivos locais**: dados vêm de `window.RV_DATA.metrics` (ou `window.RV_DATA.timeline`), carregado por `assets/js/data.js`.
 
-**Módulos CDN necessários por tipo de gráfico:**
+**Módulos necessários por tipo de gráfico (preferência: caminho local em `assets/vendor/`):**
 
-| Recurso | Script CDN |
-|---------|-----------|
-| Core (obrigatório) | `highcharts.js` |
-| Accessibility (obrigatório) | `modules/accessibility.js` |
-| Exporting (obrigatório) | `modules/exporting.js` |
-| Export Data | `modules/export-data.js` |
-| Tipos avançados (gauge, polar, etc.) | `highcharts-more.js` |
-| 3D | `highcharts-3d.js` |
-| Solid Gauge | `modules/solid-gauge.js` |
-| Treemap | `modules/treemap.js` |
-| Sunburst | `modules/sunburst.js` |
-| Sankey | `modules/sankey.js` |
-| Heatmap | `modules/heatmap.js` |
-| Funnel | `modules/funnel.js` |
-| Dependency Wheel | `modules/dependency-wheel.js` |
-| Network Graph | `modules/networkgraph.js` |
-| Organization | `modules/organization.js` |
-| Histogram/Bellcurve | `modules/histogram-bellcurve.js` |
-| Bullet | `modules/bullet.js` |
-| Timeline | `modules/timeline.js` |
-| Wordcloud | `modules/wordcloud.js` |
-| Venn | `modules/venn.js` |
-| Drilldown | `modules/drilldown.js` |
-| Annotations | `modules/annotations.js` |
-| Boost (dados grandes) | `modules/boost.js` |
-| Offline Exporting | `modules/offline-exporting.js` |
-| Stock (candlestick, OHLC) | `/stock/highstock.js` (substitui highcharts.js) |
-| Maps | `/maps/highmaps.js` (substitui highcharts.js) |
-| Gantt | `/gantt/highcharts-gantt.js` (substitui highcharts.js) |
+| Recurso | Local (quando rodado pelo time Docs) | Fallback CDN |
+|---------|--------------------------------------|--------------|
+| Core (obrigatório) | `assets/vendor/highcharts.js` | `https://code.highcharts.com/11.4.8/highcharts.js` |
+| Accessibility (obrigatório) | `assets/vendor/highcharts-accessibility.js` | `.../11.4.8/modules/accessibility.js` |
+| Exporting (obrigatório) | `assets/vendor/highcharts-exporting.js` | `.../11.4.8/modules/exporting.js` |
+| Treemap | `assets/vendor/highcharts-treemap.js` | `.../11.4.8/modules/treemap.js` |
+| Sankey | `assets/vendor/highcharts-sankey.js` | `.../11.4.8/modules/sankey.js` |
+| Timeline | `assets/vendor/highcharts-timeline.js` | `.../11.4.8/modules/timeline.js` |
+| Outros (Sunburst, Heatmap, Funnel, etc) | adicionar em `vendor-pins.yaml` antes de usar | `.../11.4.8/modules/<modulo>.js` |
+| Stock (candlestick, OHLC) | adicionar em `vendor-pins.yaml` antes de usar | `.../stock/11.4.8/highstock.js` |
+| Maps | adicionar em `vendor-pins.yaml` antes de usar | `.../maps/11.4.8/highmaps.js` |
+| Gantt | adicionar em `vendor-pins.yaml` antes de usar | `.../gantt/11.4.8/highcharts-gantt.js` |
 
-Todos os CDN no formato: `https://code.highcharts.com/{path}`
+> Se uma página precisa de módulo que **ainda não está** em `vendor-pins.yaml`, o caminho correto é:
+> 1. Pedir ao Publisher que adicione o pin (commit nessa skill ou abrir issue), com URL primária + fallbacks.
+> 2. Só depois usar o módulo.
+> Apontar diretamente para CDN nas páginas finais é ruptura da invariante "funciona via `file://` sem internet".
+
+Todos os CDNs (fallback) no formato: `https://code.highcharts.com/11.4.8/{path}`.
 
 ### 5. Salvar e Entregar
 

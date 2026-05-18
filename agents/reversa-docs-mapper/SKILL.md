@@ -89,8 +89,10 @@ Se Python não estiver disponível, gere os JSONs lendo o código fonte direto v
    - `groupByFolder` (true se `modules.length > 500`)
 3. A skill retorna HTML self-contained. Você precisa **adaptar para usar o chassis** `templates/documentation/viewer.html`:
    - Preencha marcadores: `<!-- TITLE -->` = "Arquitetura 3D", `<!-- PAGE_ID -->` = "arquitetura", `<!-- REVERSA_CATEGORY -->` = "diagram", `<!-- REVERSA_PRODUCER_AGENT -->` = "reversa-docs-mapper", `<!-- REVERSA_TEMPLATE -->` = "arquitetura", `<!-- VISUAL_STYLE -->` = (valor do config), `<!-- GENERATED_AT -->` = ISO-8601 atual.
+   - **Deixe `<!-- NAV_LINKS -->` como está**. O Publisher backpatcha no final lendo `pagesGenerated`.
    - Coloque o `<canvas>` e o `<script>` Three.js dentro de `<!-- PAYLOAD -->`.
-   - Coloque `<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js"></script>` em `<!-- HEAD_EXTRAS -->`.
+   - Coloque `<script src="assets/vendor/three.min.js"></script>` + `<script src="assets/vendor/OrbitControls.js"></script>` em `<!-- HEAD_EXTRAS -->`. Essas libs são baixadas pela Fase 0 do orquestrador `/reversa-docs` (que executa o Passo 0 do Publisher antes do Mapper rodar). Em modo isolado, este agente executa o mesmo procedimento se `assets/vendor/` estiver vazio. Se rede falhar e libs ficarem ausentes, registre em `.state.json.vendorMissing` e gere placeholder de aviso em vez da página.
+   - **NUNCA** use `fetch("assets/data/modules.json")`. O script inline lê `window.RV_DATA.modules` e `window.RV_DATA.deps` (injetado pelo `assets/js/data.js` que o Publisher gera). Páginas com `fetch()` local quebram quando o usuário abre via `file://` (CORS).
    - Use o template `templates/documentation/pages/arquitetura.html.tpl` como referência de estrutura do PAYLOAD.
 4. Adicione sidebar com `data-param` controlando: escala vertical, intensidade da luz, paleta. Use o helper `templates/documentation/assets/js/sidebar.js` (já incluso pelo viewer).
 5. Salve em `.reversa/documentation/arquitetura.html`.
@@ -99,10 +101,11 @@ Se Python não estiver disponível, gere os JSONs lendo o código fonte direto v
 
 1. Carregue `modules.json` e `deps.json`.
 2. Invoque a skill `especialista-d3` em modo `force-directed` passando os mesmos dados.
-3. Aplique o chassis `viewer.html` igual ao anterior, usando `templates/documentation/pages/modulos.html.tpl` como guia.
-4. Highlight em vermelho para nós que aparecem em `deps.json.cycles`.
-5. Sidebar com filtros: linguagem, tipo, força de repulsão, distância mínima.
-6. Salve em `.reversa/documentation/modulos.html`.
+3. Aplique o chassis `viewer.html` igual ao anterior, usando `templates/documentation/pages/modulos.html.tpl` como guia. Em `<!-- HEAD_EXTRAS -->` use `<script src="assets/vendor/d3.v7.min.js"></script>` (Publisher baixa via `vendor-pins.yaml`, d3@7.8.5).
+4. **NUNCA** use `fetch("assets/data/modules.json")` no script da página. Leia `window.RV_DATA.modules` e `window.RV_DATA.deps`. Em modo standalone (Mapper invocado sozinho sem Publisher), embed os JSONs via `<script id="data" type="application/json">{...}</script>`.
+5. Highlight em vermelho para nós que aparecem em `deps.json.cycles`.
+6. Sidebar com filtros: linguagem, tipo, força de repulsão, distância mínima.
+7. Salve em `.reversa/documentation/modulos.html`.
 
 ### 4. Gerar `topologia.html` (apenas se topologia detectada)
 

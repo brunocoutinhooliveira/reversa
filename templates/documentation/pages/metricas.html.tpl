@@ -7,13 +7,18 @@
   Dados consumidos: assets/data/metrics.json
 
   Marcadores:
-  - HEAD_EXTRAS: <script src="https://code.highcharts.com/highcharts.js"></script>
-                 + <script src="https://code.highcharts.com/modules/treemap.js"></script>
-                 + <script src="https://code.highcharts.com/modules/sankey.js"></script>
+  - HEAD_EXTRAS: <script src="assets/vendor/highcharts.js"></script>
+                 + <script src="assets/vendor/highcharts-accessibility.js"></script>
+                 + <script src="assets/vendor/highcharts-exporting.js"></script>
+                 + <script src="assets/vendor/highcharts-treemap.js"></script>
+                 + <script src="assets/vendor/highcharts-sankey.js"></script>
+                 (todos baixados pelo Publisher via vendor-pins.yaml,
+                  highcharts@11.4.8)
   - CHART_TREEMAP: container do treemap LOC
   - CHART_COMPLEXITY: container das barras top 20
   - CHART_HISTOGRAM: container do histograma
   - CHART_SANKEY: container do sankey de dependências
+  - SCRIPTS: monta os charts a partir de window.RV_DATA.metrics (sem fetch local)
 -->
 
 <!-- PAYLOAD_START -->

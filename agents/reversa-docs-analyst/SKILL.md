@@ -38,6 +38,7 @@ Segundo agente do pipeline `/reversa-docs`. Reusa os JSONs intermediários do Ma
 1. Leia `.reversa/state.json` para `user_name`, `chat_language`.
 2. Leia `.reversa/documentation/.config.json`. Se ausente, conduza entrevista mínima.
 3. Verifique presença de `modules.json` e `deps.json`. Se ausentes, invoque os scripts do Mapper para gerá-los (`extract_modules.py`, `extract_deps.py`). Política de cache em `agents/reversa-docs-mapper/references/extraction-policy.md`.
+4. Verifique se `.reversa/documentation/assets/vendor/highcharts.js` (e módulos associados) existe. Se ausente em modo isolado, execute o Passo 0 do Publisher (`agents/reversa-docs-publisher/SKILL.md`) lendo `vendor-pins.yaml` para baixar Highcharts + módulos com retry de CDN. No modo orquestrado, isso já foi feito na Fase 0.
 
 ## Entrevista mínima
 
@@ -84,8 +85,9 @@ Salve em `.reversa/documentation/assets/data/metrics.json`.
    - **Histogram**: `loc_histogram`
    - **Sankey**: `dependency_sankey`
 3. Adapte ao chassis `viewer.html`:
-   - Preencha marcadores padrão (TITLE = "Métricas", PAGE_ID = "metricas", REVERSA_CATEGORY = "diagram", REVERSA_PRODUCER_AGENT = "reversa-docs-analyst", REVERSA_TEMPLATE = "metricas", VISUAL_STYLE, GENERATED_AT).
-   - `<!-- HEAD_EXTRAS -->`: `<script src="https://code.highcharts.com/highcharts.js"></script>` + módulos treemap e sankey.
+   - Preencha marcadores padrão (TITLE = "Métricas", PAGE_ID = "metricas", REVERSA_CATEGORY = "diagram", REVERSA_PRODUCER_AGENT = "reversa-docs-analyst", REVERSA_TEMPLATE = "metricas", VISUAL_STYLE, GENERATED_AT). Deixe `<!-- NAV_LINKS -->` como está (Publisher backpatcha).
+   - `<!-- HEAD_EXTRAS -->`: `<script src="assets/vendor/highcharts.js"></script>` + `assets/vendor/highcharts-accessibility.js` + `assets/vendor/highcharts-exporting.js` + `assets/vendor/highcharts-treemap.js` + `assets/vendor/highcharts-sankey.js` (todos baixados pelo Publisher via `vendor-pins.yaml`, highcharts@11.4.8).
+   - **NUNCA** use `fetch("assets/data/metrics.json")`. O script da página lê `window.RV_DATA.metrics` (injetado pelo `assets/js/data.js` que o Publisher gera). Páginas com fetch local quebram via `file://` por CORS.
    - Use `templates/documentation/pages/metricas.html.tpl` como guia de estrutura do PAYLOAD.
 4. Layout responsivo em grid 2x2. Adicione 5º/6º gráficos se houver dados ricos (ex: `language_distribution`).
 5. Salve em `.reversa/documentation/metricas.html`.
@@ -106,10 +108,11 @@ Salve em `.reversa/documentation/assets/data/metrics.json`.
 
 1. Carregue `timeline.json`.
 2. Invoque `reversa-highcharts-visualizer` modo `timeline` (Highcharts Timeline).
-3. Aplique o chassis usando `templates/documentation/pages/timeline.html.tpl`.
-4. Adicione `<script src="https://code.highcharts.com/modules/timeline.js"></script>` em HEAD_EXTRAS.
-5. Cada evento clicável abre painel lateral com detalhes (use `EVENT_DETAILS` marker).
-6. Salve em `.reversa/documentation/timeline.html`.
+3. Aplique o chassis usando `templates/documentation/pages/timeline.html.tpl`. Deixe `<!-- NAV_LINKS -->` para o Publisher.
+4. HEAD_EXTRAS: `<script src="assets/vendor/highcharts.js"></script>` + `assets/vendor/highcharts-accessibility.js` + `assets/vendor/highcharts-timeline.js` (Publisher baixa via `vendor-pins.yaml`).
+5. Leia dados de `window.RV_DATA.timeline`. **Sem fetch local**.
+6. Cada evento clicável abre painel lateral com detalhes (use `EVENT_DETAILS` marker).
+7. Salve em `.reversa/documentation/timeline.html`.
 
 ### 5. Atualizar `.state.json`
 
